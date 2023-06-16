@@ -12,7 +12,7 @@
     "stop": "kill-port 8301 && kill-port 4049 && kill-port 4040"
   },
   "dependencies": {
-    "monday-sdk-js": "^0.1.4",
+    "monday-sdk-js": "^0.1.6",
     "monday-ui-react-core": "^1.54.0"
   },
   "eslintConfig": {

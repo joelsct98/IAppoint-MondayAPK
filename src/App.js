@@ -44,7 +44,7 @@ const App = () => {
       setBoardData({ id: newBoardId });
       setInputValue(newBoardId);
       setIsLoading(false);
-      fetchData(newBoardId);
+      fetchColumnsAndItems(newBoardId);
       createColumns(newBoardId, newItemId); // Crear las columnas y la automatización después de crear el board y el item
     }).catch(error => {
       console.log("Error al crear el board:", error);
@@ -52,22 +52,116 @@ const App = () => {
     });
   }
 
-  const fetchData = (boardId) => {
+  const createColumns = async (newBoardId, newItemId) => {
+    try {
+      const createColumnPromises = [
+        monday.api(`mutation {
+          create_column(
+            board_id: ${newBoardId},
+            title: "Estado",
+            column_type: status
+          ) {
+            id
+          }
+        }`),
+        monday.api(`mutation {
+          create_column(
+            board_id: ${newBoardId},
+            title: "Julex",
+            column_type: text
+          ) {
+            id
+          }
+        }`)
+      ];
+
+      const responses = await Promise.all(createColumnPromises);
+
+      const statusColumnId = responses[0].data.create_column.id;
+      const observationsColumnId = responses[1].data.create_column.id;
+
+      console.log("Nueva columna Estado creada:", statusColumnId);
+      console.log("Nueva columna Julex creada:", observationsColumnId);
+    } catch (error) {
+      console.log("Error al crear las columnas:", error);
+    }
+  };
+
+  const updateStatusLabels = async (boardId, statusValues) => {
+    const doneLabel = statusValues.find(value => value === 'Done');
+    const stuckLabel = statusValues.find(value => value === 'Stuck');
+    const workingLabel = statusValues.find(value => value === 'Working on it');
+
+    if (doneLabel) {
+      await monday.api(`mutation {
+        change_column_value(
+          board_id: ${boardId},
+          item_id: "${doneLabel}",
+          column_id: "estado",
+          value: "{\"label\": \"Julio Durmiendo\"}"
+        ) {
+          id
+        }
+      }`);
+    }
+
+    if (stuckLabel) {
+      await monday.api(`mutation {
+        change_column_value(
+          board_id: ${boardId},
+          item_id: "${stuckLabel}",
+          column_id: "estado",
+          value: "{\"label\": \"Fallido\"}"
+        ) {
+          id
+        }
+      }`);
+    }
+
+    if (workingLabel) {
+      await monday.api(`mutation {
+        change_column_value(
+          board_id: ${boardId},
+          item_id: "${workingLabel}",
+          column_id: "estado",
+          value: "{\"label\": \"Agendado\"}"
+        ) {
+          id
+        }
+      }`);
+    }
+  };
+
+  const fetchColumnsAndItems = (boardId) => {
     setIsLoading(true);
     monday.api(`query {
       boards(ids: ${boardId}) {
-        id
-        name
+        columns {
+          id
+          title
+          settings_str
+        }
         items {
           id
           name
+          column_values {
+            id
+            value
+            title
+          }
         }
       }
     }`).then(response => {
       const board = response.data.boards[0];
+      const statusColumn = board.columns.find(column => column.settings_str && column.settings_str.includes('status'));
+      const statusValues = statusColumn?.settings_str?.match(/"label":"(.*?)"/g)?.map(value => value.match(/"label":"(.*?)"/)?.[1]) || [];
+      board.statusValues = statusValues; // Agregar los estados al objeto board
       setBoardData(board);
       setIsLoading(false);
       console.log(board);
+
+      // Actualizar los valores de etiquetas
+      updateStatusLabels(boardId, statusValues);
     }).catch(error => {
       console.log(error);
       setIsLoading(false);
@@ -77,107 +171,12 @@ const App = () => {
   const handleSubmit = (event) => {
     event.preventDefault();
     setTokenValue(tokenInput);
-    fetchData(inputValue);
+    fetchColumnsAndItems(inputValue);
   }
 
   const handleTokenChange = (event) => {
     setTokenInput(event.target.value);
   }
-
-  const createColumns = async (newBoardId, newItemId) => {
-    try {
-      const createColumnPromises = [
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Teléfono",
-            column_type: phone
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Email",
-            column_type: email
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Observaciones",
-            column_type: text
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Julex",
-            column_type: button
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Email Marketing",
-            column_type: text
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Fecha",
-            column_type: date
-          ) {
-            id
-          }
-        }`)
-      ];
-
-      const responses = await Promise.all(createColumnPromises);
-
-      const column1Id = responses[0].data.create_column.id;
-      const column2Id = responses[1].data.create_column.id;
-      const column3Id = responses[2].data.create_column.id;
-      const column4Id = responses[3].data.create_column.id;
-      const column5Id = responses[4].data.create_column.id;
-      const fechaColumnId = responses[5].data.create_column.id;
-
-      console.log("Nueva columna Teléfono creada:", column1Id);
-      console.log("Nueva columna Email creada:", column2Id);
-      console.log("Nueva columna Observaciones creada:", column3Id);
-      console.log("Nueva columna Julex creada:", column4Id);
-      console.log("Nueva columna Email Marketing creada:", column5Id);
-      console.log("Nueva columna Fecha creada:", fechaColumnId);
-
-      const currentDate = new Date().toISOString().split("T")[0];
-      monday.api(`mutation {
-        change_column_value(
-          board_id: ${newBoardId},
-          item_id: ${newItemId},
-          column_id: ${fechaColumnId}, // ID de la columna "Fecha"
-          value: "{\"date\":\"${currentDate}\"}"
-        ) {
-          id
-        }
-      }`).then(response => {
-        console.log("Fecha actualizada en el item:", newItemId);
-      }).catch(error => {
-        console.log("Error al actualizar la fecha:", error);
-      });
-    } catch (error) {
-      console.log("Error al crear las columnas:", error);
-    }
-  };
 
   return (
     <div className="capa">
@@ -216,6 +215,16 @@ const App = () => {
                     <li key={item.id}>{item.name}</li>
                   ))}
                 </ul>
+                {boardData.statusValues && (
+                  <div>
+                    <h3>Estados:</h3>
+                    <ul>
+                      {boardData.statusValues.map((status) => (
+                        <li key={status}>{status}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>

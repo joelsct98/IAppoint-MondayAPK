@@ -13,10 +13,7 @@ const App = () => {
   const [boardData, setBoardData] = useState(null);
   const [inputValue, setInputValue] = useState("");
   const [tokenInput, setTokenInput] = useState("");
-  const [tokenValue, setTokenValue] = useState("eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjI2MzEzMjIxOSwiYWFpIjoxMSwidWlkIjo0MzU1OTExNCwiaWFkIjoiMjAyMy0wNi0xNlQxODowMDowOS4wNDdaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTcwMjMxNTYsInJnbiI6ImV1YzEifQ.-6cmn0a_h328a1fE2be4uQ-qzx65vcgBIH1UA5xCoFs");
-  const [column1Id, setColumn1Id] = useState(null);
-  const [column2Id, setColumn2Id] = useState(null);
-  const [column3Id, setColumn3Id] = useState(null);
+  const [tokenValue, setTokenValue] = useState("eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjI2MzEzMjIxOSwiYWFpIjoxMSwidWlkIjo0MzU1OTExNCwiaWFkIjoiMjAyMy0wNi0xNlQxODowMDowOS4wNDdaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTcwMjMxNTYsInJnbiI6ImV1YzEifQ.-6cmn0a_h328a1fE2be4uQ-qzx65vcgBIH1UA5xCoFs"); // Reemplaza "YOUR_API_TOKEN" con tu token
 
   useEffect(() => {
     monday.listen("context", (res) => {
@@ -37,29 +34,14 @@ const App = () => {
         description: "Bienvenido a Nuestro sistema de Ventas de Julex.ia"
       ) {
         id
-        columns {
-          id
-          title
-        }
-        items {
-          id
-          column_values {
-            id
-            value
-            title
-          }
-        }
       }
     }`).then(response => {
-      const newBoard = response.data.create_board;
-      const newBoardId = newBoard.id;
-      const newColumns = newBoard.columns;
-      const newItems = newBoard.items;
-
-      setBoardData({ id: newBoardId, columns: newColumns, items: newItems });
+      const newBoardId = response.data.create_board.id;
+      setBoardData({ id: newBoardId });
       setInputValue(newBoardId);
       setIsLoading(false);
-      createNewColumns(newBoardId);
+      fetchData(newBoardId);
+      createNewColumns(newBoardId); // Crear las columnas automáticamente después de crear el board
     }).catch(error => {
       console.log("Error al crear el board:", error);
       setIsLoading(false);
@@ -113,8 +95,8 @@ const App = () => {
         monday.api(`mutation {
           create_column(
             board_id: ${newBoardId},
-            title: "Nombre",
-            column_type: text
+            title: "Teléfono",
+            column_type: phone
           ) {
             id
           }
@@ -123,7 +105,7 @@ const App = () => {
           create_column(
             board_id: ${newBoardId},
             title: "Email",
-            column_type: text
+            column_type: email
           ) {
             id
           }
@@ -131,86 +113,36 @@ const App = () => {
         monday.api(`mutation {
           create_column(
             board_id: ${newBoardId},
-            title: "Estado",
-            column_type: text
+            title: "Julex.ai",
+            column_type: status
+          ) {
+            id
+          }
+        }`),
+        monday.api(`mutation {
+          create_column(
+            board_id: ${newBoardId},
+            title: "Activar Julex.ai",
+            column_type: button
           ) {
             id
           }
         }`)
       ];
-
+  
       const responses = await Promise.all(createColumnPromises);
-
+  
       const column1Id = responses[0].data.create_column.id;
       const column2Id = responses[1].data.create_column.id;
       const column3Id = responses[2].data.create_column.id;
-
-      setColumn1Id(column1Id);
-      setColumn2Id(column2Id);
-      setColumn3Id(column3Id);
-
-      console.log("Nueva columna Nombre creada:", column1Id);
+      const column4Id = responses[3].data.create_column.id;
+  
+      console.log("Nueva columna Teléfono creada:", column1Id);
       console.log("Nueva columna Email creada:", column2Id);
-      console.log("Nueva columna Estado creada:", column3Id);
-
-      createItems(newBoardId, column1Id, column2Id, column3Id);
+      console.log("Nueva columna Julex.ai creada:", column3Id);
+      console.log("Nueva columna Activar Julex.ai creada:", column4Id);
     } catch (error) {
       console.log("Error al crear las columnas:", error);
-    }
-  };
-
-  const createItems = async (boardId, column1Id, column2Id, column3Id) => {
-    try {
-      const item1Nombre = "Juan Carlos";
-      const item1Email = "juancarlos@gmail.com";
-      const item1Estado = "enviado";
-  
-      const item2Nombre = "Jose";
-      const item2Email = "jose@gmail.com";
-      const item2Estado = "fallido";
-  
-      const item3Nombre = "Ana";
-      const item3Email = "ana@gmail.com";
-      const item3Estado = "en proceso";
-  
-      const createItemPromises = [
-        monday.api(`mutation {
-          create_item(
-            board_id: ${boardId},
-            group_id: "topics",
-            item_name: "${item1Nombre}",
-            column_values: "{\"${column1Id}\": {\"text\": \"${item1Nombre}\"}, \"${column2Id}\": {\"text\": \"${item1Email}\"}, \"${column3Id}\": {\"text\": \"${item1Estado}\"}}"
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_item(
-            board_id: ${boardId},
-            group_id: "topics",
-            item_name: "${item2Nombre}",
-            column_values: "{\"${column1Id}\": {\"text\": \"${item2Nombre}\"}, \"${column2Id}\": {\"text\": \"${item2Email}\"}, \"${column3Id}\": {\"text\": \"${item2Estado}\"}}"
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_item(
-            board_id: ${boardId},
-            group_id: "topics",
-            item_name: "${item3Nombre}",
-            column_values: "{\"${column1Id}\": {\"text\": \"${item3Nombre}\"}, \"${column2Id}\": {\"text\": \"${item3Email}\"}, \"${column3Id}\": {\"text\": \"${item3Estado}\"}}"
-          ) {
-            id
-          }
-        }`)
-      ];
-  
-      await Promise.all(createItemPromises);
-  
-      console.log("Items creados exitosamente");
-    } catch (error) {
-      console.log("Error al crear los items:", error);
     }
   };
 
@@ -246,28 +178,26 @@ const App = () => {
                   <button type="submit">Actualizar</button>
                 </form>
                 <h2>Board: {boardData.name}</h2>
-                {boardData && column1Id && column2Id && column3Id && (
-                      <div className="datos">
-                        <div className="dato-columna">
-                          <p>Nombre:</p>
-                          {boardData.items.map(item => (
-                            <p key={item.id}>{item.column_values[column1Id]?.text}</p>
-                          ))}
-                        </div>
-                        <div className="dato-columna">
-                          <p>Email:</p>
-                          {boardData.items.map(item => (
-                            <p key={item.id}>{item.column_values[column2Id]?.text}</p>
-                          ))}
-                        </div>
-                        <div className="dato-columna">
-                          <p>Estado:</p>
-                          {boardData.items.map(item => (
-                            <p key={item.id}>{item.column_values[column3Id]?.text}</p>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                <div className="datos">
+                  <div className="dato-columna">
+                    <p>Nombre:</p>
+                    {boardData.items.map(item => (
+                      <p key={item.id}>{item.name}</p>
+                    ))}
+                  </div>
+                  <div className="dato-columna">
+                    <p>Email:</p>
+                    {boardData.items.map(item => (
+                      <p key={item.id}>{item.name}</p>
+                    ))}
+                  </div>
+                  <div className="dato-columna">
+                    <p>Julex:</p>
+                    {boardData.items.map(item => (
+                      <p key={item.id}>{item.name}</p>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

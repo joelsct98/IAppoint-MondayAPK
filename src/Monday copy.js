@@ -14,6 +14,9 @@ const App = () => {
   const [inputValue, setInputValue] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [tokenValue, setTokenValue] = useState("eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjI2MzEzMjIxOSwiYWFpIjoxMSwidWlkIjo0MzU1OTExNCwiaWFkIjoiMjAyMy0wNi0xNlQxODowMDowOS4wNDdaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTcwMjMxNTYsInJnbiI6ImV1YzEifQ.-6cmn0a_h328a1fE2be4uQ-qzx65vcgBIH1UA5xCoFs");
+  const [column1Id, setColumn1Id] = useState(null);
+  const [column2Id, setColumn2Id] = useState(null);
+  const [column3Id, setColumn3Id] = useState(null);
 
   useEffect(() => {
     monday.listen("context", (res) => {
@@ -34,18 +37,29 @@ const App = () => {
         description: "Bienvenido a Nuestro sistema de Ventas de Julex.ia"
       ) {
         id
+        columns {
+          id
+          title
+        }
         items {
           id
+          column_values {
+            id
+            value
+            title
+          }
         }
       }
     }`).then(response => {
-      const newBoardId = response.data.create_board.id;
-      const newItemId = response.data.create_board.items[0].id;
-      setBoardData({ id: newBoardId });
+      const newBoard = response.data.create_board;
+      const newBoardId = newBoard.id;
+      const newColumns = newBoard.columns;
+      const newItems = newBoard.items;
+
+      setBoardData({ id: newBoardId, columns: newColumns, items: newItems });
       setInputValue(newBoardId);
       setIsLoading(false);
-      fetchData(newBoardId);
-      createColumns(newBoardId, newItemId); // Crear las columnas y la automatización después de crear el board y el item
+      createNewColumns(newBoardId);
     }).catch(error => {
       console.log("Error al crear el board:", error);
       setIsLoading(false);
@@ -56,11 +70,20 @@ const App = () => {
     setIsLoading(true);
     monday.api(`query {
       boards(ids: ${boardId}) {
-        id
         name
+        columns {
+          id
+          title
+          settings_str
+        }
         items {
           id
           name
+          column_values {
+            id
+            value
+            title
+          }
         }
       }
     }`).then(response => {
@@ -84,14 +107,14 @@ const App = () => {
     setTokenInput(event.target.value);
   }
 
-  const createColumns = async (newBoardId, newItemId) => {
+  const createNewColumns = async (newBoardId) => {
     try {
       const createColumnPromises = [
         monday.api(`mutation {
           create_column(
             board_id: ${newBoardId},
-            title: "Teléfono",
-            column_type: phone
+            title: "Nombre",
+            column_type: text
           ) {
             id
           }
@@ -100,43 +123,7 @@ const App = () => {
           create_column(
             board_id: ${newBoardId},
             title: "Email",
-            column_type: email
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Observaciones",
             column_type: text
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Julex",
-            column_type: button
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Email Marketing",
-            column_type: text
-          ) {
-            id
-          }
-        }`),
-        monday.api(`mutation {
-          create_column(
-            board_id: ${newBoardId},
-            title: "Fecha",
-            column_type: date
           ) {
             id
           }
@@ -145,7 +132,7 @@ const App = () => {
           create_column(
             board_id: ${newBoardId},
             title: "Estado",
-            column_type: status
+            column_type: text
           ) {
             id
           }
@@ -157,70 +144,73 @@ const App = () => {
       const column1Id = responses[0].data.create_column.id;
       const column2Id = responses[1].data.create_column.id;
       const column3Id = responses[2].data.create_column.id;
-      const column4Id = responses[3].data.create_column.id;
-      const column5Id = responses[4].data.create_column.id;
-      const fechaColumnId = responses[5].data.create_column.id;
-      const statusColumnId = responses[6].data.create_column.id;
 
-      console.log("Nueva columna Teléfono creada:", column1Id);
+      setColumn1Id(column1Id);
+      setColumn2Id(column2Id);
+      setColumn3Id(column3Id);
+
+      console.log("Nueva columna Nombre creada:", column1Id);
       console.log("Nueva columna Email creada:", column2Id);
-      console.log("Nueva columna Observaciones creada:", column3Id);
-      console.log("Nueva columna Julex creada:", column4Id);
-      console.log("Nueva columna Email Marketing creada:", column5Id);
-      console.log("Nueva columna Fecha creada:", fechaColumnId);
-      console.log("Nueva columna Estado creada:", statusColumnId);
+      console.log("Nueva columna Estado creada:", column3Id);
 
-      const currentDate = new Date().toISOString().split("T")[0];
-      monday.api(`mutation {
-        change_column_value(
-          board_id: ${newBoardId},
-          item_id: ${newItemId},
-          column_id: ${fechaColumnId},
-          value: "{\"date\":\"${currentDate}\"}"
-        ) {
-          id
-        }
-      }`).then(response => {
-        console.log("Fecha actualizada en el item:", newItemId);
-      }).catch(error => {
-        console.log("Error al actualizar la fecha:", error);
-      });
+      createItems(newBoardId, column1Id, column2Id, column3Id);
+    } catch (error) {
+      console.log("Error al crear las columnas:", error);
+    }
+  };
 
-      // Crear una etiqueta "Enviado" en la columna "Estado" con color verde
-      monday.api(`mutation {
-        create_label(
-          board_id: ${newBoardId},
-          label: {
-            name: "Enviado",
-            color: "#00ff00"
-          }
-        ) {
-          id
-        }
-      }`).then(response => {
-        const labelId = response.data.create_label.id;
-        console.log("Etiqueta 'Enviado' creada con ID:", labelId);
-
-        // Establecer la etiqueta "Enviado" como valor predeterminado en la columna "Estado" para el nuevo item
+  const createItems = async (boardId, column1Id, column2Id, column3Id) => {
+    try {
+      const item1Nombre = "Juan Carlos";
+      const item1Email = "juancarlos@gmail.com";
+      const item1Estado = "enviado";
+  
+      const item2Nombre = "Jose";
+      const item2Email = "jose@gmail.com";
+      const item2Estado = "fallido";
+  
+      const item3Nombre = "Ana";
+      const item3Email = "ana@gmail.com";
+      const item3Estado = "en proceso";
+  
+      const createItemPromises = [
         monday.api(`mutation {
-          change_column_value(
-            board_id: ${newBoardId},
-            item_id: ${newItemId},
-            column_id: ${statusColumnId},
-            value: "{\"labels\":[{\"labelId\":\"${labelId}\"}]}"
+          create_item(
+            board_id: ${boardId},
+            group_id: "topics",
+            item_name: "${item1Nombre}",
+            column_values: "{\"${column1Id}\": {\"text\": \"${item1Nombre}\"}, \"${column2Id}\": {\"text\": \"${item1Email}\"}, \"${column3Id}\": {\"text\": \"${item1Estado}\"}}"
           ) {
             id
           }
-        }`).then(response => {
-          console.log("Etiqueta 'Enviado' establecida como valor predeterminado en el item:", newItemId);
-        }).catch(error => {
-          console.log("Error al establecer la etiqueta predeterminada:", error);
-        });
-      }).catch(error => {
-        console.log("Error al crear la etiqueta:", error);
-      });
+        }`),
+        monday.api(`mutation {
+          create_item(
+            board_id: ${boardId},
+            group_id: "topics",
+            item_name: "${item2Nombre}",
+            column_values: "{\"${column1Id}\": {\"text\": \"${item2Nombre}\"}, \"${column2Id}\": {\"text\": \"${item2Email}\"}, \"${column3Id}\": {\"text\": \"${item2Estado}\"}}"
+          ) {
+            id
+          }
+        }`),
+        monday.api(`mutation {
+          create_item(
+            board_id: ${boardId},
+            group_id: "topics",
+            item_name: "${item3Nombre}",
+            column_values: "{\"${column1Id}\": {\"text\": \"${item3Nombre}\"}, \"${column2Id}\": {\"text\": \"${item3Email}\"}, \"${column3Id}\": {\"text\": \"${item3Estado}\"}}"
+          ) {
+            id
+          }
+        }`)
+      ];
+  
+      await Promise.all(createItemPromises);
+  
+      console.log("Items creados exitosamente");
     } catch (error) {
-      console.log("Error al crear las columnas:", error);
+      console.log("Error al crear los items:", error);
     }
   };
 
@@ -245,22 +235,39 @@ const App = () => {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                   />
-                  <label htmlFor="token">API Token:</label>
+                  <label htmlFor="token">Token:</label>
                   <input
                     type="text"
                     id="token"
                     value={tokenInput}
                     onChange={handleTokenChange}
                   />
+                  <br></br>
                   <button type="submit">Actualizar</button>
                 </form>
-                <h3>Nombre del board: {boardData.name}</h3>
-                <h3>Items:</h3>
-                <ul>
-                  {boardData.items.map((item) => (
-                    <li key={item.id}>{item.name}</li>
-                  ))}
-                </ul>
+                <h2>Board: {boardData.name}</h2>
+                {boardData && column1Id && column2Id && column3Id && (
+                      <div className="datos">
+                        <div className="dato-columna">
+                          <p>Nombre:</p>
+                          {boardData.items.map(item => (
+                            <p key={item.id}>{item.column_values[column1Id]?.text}</p>
+                          ))}
+                        </div>
+                        <div className="dato-columna">
+                          <p>Email:</p>
+                          {boardData.items.map(item => (
+                            <p key={item.id}>{item.column_values[column2Id]?.text}</p>
+                          ))}
+                        </div>
+                        <div className="dato-columna">
+                          <p>Estado:</p>
+                          {boardData.items.map(item => (
+                            <p key={item.id}>{item.column_values[column3Id]?.text}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
               </div>
             )}
           </div>

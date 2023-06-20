@@ -52,11 +52,20 @@ const App = () => {
     setIsLoading(true);
     monday.api(`query {
       boards(ids: ${boardId}) {
-        id
         name
+        columns {
+          id
+          title
+          settings_str
+        }
         items {
           id
           name
+          column_values {
+            id
+            value
+            title
+          }
         }
       }
     }`).then(response => {
